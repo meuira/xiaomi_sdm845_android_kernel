@@ -13,15 +13,15 @@ ARCH="arm64"
 
 DEFCONFIG="beryllium_defconfig"
 KERNEL_IMAGE="Image.gz-dtb"
-KERNEL_NAME="android-10-8"
+KERNEL_NAME="Miru"
 
 DO_CLEAN="true"
 
 export PATH="${CLANG_BIN}:${PATH}"
 export ARCH="${ARCH}"
 export SUBARCH="${ARCH}"
-export KBUILD_BUILD_USER=build-user
-export KBUILD_BUILD_HOST=build-host
+export KBUILD_BUILD_USER=miru
+export KBUILD_BUILD_HOST=archlinux
 
 MAKE_ARGS=(
 	O="${OUT_DIR}"
@@ -43,7 +43,7 @@ MAKE_ARGS=(
 	CROSS_COMPILE="aarch64-linux-gnu-"
 	CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
 	CLANG_TRIPLE="aarch64-linux-gnu-"
-	LOCALVERSION="-${KERNEL_NAME}"
+	LOCALVERSION="-美瑠/${KERNEL_NAME}"
 )
 
 hard_clean() {
@@ -79,7 +79,7 @@ build_kernel() {
 package_anykernel() {
 	echo "Packaging kernel with AnyKernel3"
 
-	local current_kernel_name="Android-Kernel"
+	local current_kernel_name="${KERNEL_NAME}"
 
 	if [ -d "${ANYKERNEL_DIR}" ]; then
 		cd "${ANYKERNEL_DIR}"
