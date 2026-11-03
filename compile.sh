@@ -9,6 +9,7 @@ JOBS="$(nproc --all)"
 CLANG_DIR="${KERNEL_DIR}/neutron-clang"
 CLANG_BIN="${CLANG_DIR}/bin"
 ANYKERNEL_DIR="${KERNEL_DIR}/tools/AnyKernel3"
+VARIANT="dynamic"
 ARCH="arm64"
 
 DEFCONFIG="beryllium_defconfig"
@@ -55,6 +56,42 @@ hard_clean() {
 	echo "generate out"
 }
 
+apply_fstab_variant() {
+	restore_fstab_variant
+	if [ "${VARIANT}" = "dynamic" ]; then
+		echo "Used default Dynamic partition."
+		return
+	fi
+
+	local FSTAB_PATCH
+	if [ "${VARIANT}" = "se" ]; then
+		echo "Applying fstab System Ext"
+		FSTAB_PATCH="${KERNEL_DIR}/patches/fstab/sdm845-xiaomi-common_system_ext.patch"
+	fi
+
+	if [ "${VARIANT}" = "nse" ]; then
+		echo "Applying fstab Non System Ext"
+		FSTAB_PATCH="${KERNEL_DIR}/patches/fstab/sdm845-xiaomi-common_non_system_ext.patch"
+	fi
+
+	if [ ! -f "${FSTAB_PATCH}" ]; then
+		echo "Fstab patch not found: ${FSTAB_PATCH}"
+		exit 1
+	fi
+
+	patch -p1 -d "${KERNEL_DIR}" < "${FSTAB_PATCH}"
+
+	echo "Fstab ${VARIANT} variant is applied"
+}
+
+restore_fstab_variant() {
+	if [ "${VARIANT}" = "dynamic" ]; then
+		return
+	fi
+	echo "Restoring default fstab"
+	git checkout -- "${KERNEL_DIR}/arch/arm64/boot/dts/qcom/sdm845-xiaomi-common.dtsi" 2>/dev/null || true
+}
+
 build_kernel() {
 	if [ -f "${OUT_DIR}/.version" ]; then
 		rm "${OUT_DIR}/.version"
@@ -77,9 +114,18 @@ build_kernel() {
 }
 
 package_anykernel() {
+	local variant="${1:-dynamic}"
+
 	echo "Packaging kernel with AnyKernel3"
 
 	local current_kernel_name="${KERNEL_NAME}"
+	if [ "${variant}" = "dynamic" ]; then
+		current_kernel_name="${current_kernel_name}-Dynamic"
+	elif [ "${variant}" = "nse" ]; then
+		current_kernel_name="${current_kernel_name}-NSE"
+	elif [ "${variant}" = "se" ]; then
+		current_kernel_name="${current_kernel_name}-SE"
+	fi
 
 	if [ -d "${ANYKERNEL_DIR}" ]; then
 		cd "${ANYKERNEL_DIR}"
@@ -105,14 +151,68 @@ package_anykernel() {
 	fi
 }
 
+run_release_builds() {
+	echo "Starting Variant Release Builds"
+	hard_clean
+	make -C "${KERNEL_DIR}" "${MAKE_ARGS[@]}" "${DEFCONFIG}"
+
+	local -a release_commands=(
+		"--dynamic"
+		"--nse"
+		"--se"
+	)
+
+	for release_command in "${release_commands[@]}"; do
+		local -a release_args=()
+		read -r -a release_args <<< "${release_command}"
+
+		echo "Running build with args: ${release_args[*]}"
+		bash "${KERNEL_DIR}/compile.sh" "${release_args[@]}" --dirty
+	done
+}
+
 main() {
+	for arg in "$@"; do
+		if [ "${arg}" = "--release" ]; then
+			run_release_builds
+			exit 0
+		fi
+	done
+
+	for arg in "$@"; do
+		case "${arg}" in
+			--dynamic)
+			    VARIANT="dynamic"
+			    ;;
+			--nse)
+			    VARIANT="nse"
+			    ;;
+			--se)
+			    VARIANT="se"
+			    ;;
+			--clean)
+			    DO_CLEAN="true"
+			    ;;
+			--dirty)
+			    DO_CLEAN="false"
+			    ;;
+		   *)
+			echo "Unknown option: ${arg}"
+			exit 1
+			;;
+		esac
+	done
+
+	trap 'restore_fstab_variant' EXIT
+
 	if [ "${DO_CLEAN}" = "true" ]; then
 		hard_clean
 	fi
 
 	make -C "${KERNEL_DIR}" "${MAKE_ARGS[@]}" "${DEFCONFIG}"
+	apply_fstab_variant
 	build_kernel
-	package_anykernel
+	package_anykernel "${VARIANT}"
 }
 
-main
+main "$@"
