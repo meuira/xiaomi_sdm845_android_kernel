@@ -15,6 +15,7 @@ ARCH="arm64"
 DEFCONFIG="beryllium_defconfig"
 KERNEL_IMAGE="Image.gz-dtb"
 KERNEL_NAME="Miru"
+EXTRAVERSION="Aonami"
 
 DO_CLEAN="true"
 
@@ -44,7 +45,7 @@ MAKE_ARGS=(
 	CROSS_COMPILE="aarch64-linux-gnu-"
 	CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
 	CLANG_TRIPLE="aarch64-linux-gnu-"
-	LOCALVERSION="-美瑠/${KERNEL_NAME}"
+	LOCALVERSION="-美瑠/${KERNEL_NAME}-${EXTRAVERSION}"
 )
 
 hard_clean() {
@@ -118,13 +119,13 @@ package_anykernel() {
 
 	echo "Packaging kernel with AnyKernel3"
 
-	local current_kernel_name="${KERNEL_NAME}"
+	local current_name="${KERNEL_NAME}-${EXTRAVERSION}"
 	if [ "${variant}" = "dynamic" ]; then
-		current_kernel_name="${current_kernel_name}-Dynamic"
+		current_name="${current_name}-Dynamic"
 	elif [ "${variant}" = "nse" ]; then
-		current_kernel_name="${current_kernel_name}-NSE"
+		current_name="${current_name}-NSE"
 	elif [ "${variant}" = "se" ]; then
-		current_kernel_name="${current_kernel_name}-SE"
+		current_name="${current_name}-SE"
 	fi
 
 	if [ -d "${ANYKERNEL_DIR}" ]; then
@@ -136,7 +137,7 @@ package_anykernel() {
 		if [ -f "${OUT_DIR}/arch/${ARCH}/boot/${KERNEL_IMAGE}" ]; then
 			cp "${OUT_DIR}/arch/${ARCH}/boot/${KERNEL_IMAGE}" "${ANYKERNEL_DIR}/"
 
-			ZIP_NAME="${current_kernel_name}-Beryllium-$(date +%d%m%Y-%H%M).zip"
+			ZIP_NAME="${current_name}-Beryllium-$(date +%d%m%Y-%H%M).zip"
 			zip -r9 "${ZIP_NAME}" * -x "*.git*" "README.md"
 
 			mv "${ZIP_NAME}" "${OUT_DIR}/zip/"
